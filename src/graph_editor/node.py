@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QGraphicsItem,
     QGraphicsItemGroup,
     QGraphicsPathItem,
     QGraphicsSimpleTextItem,
@@ -31,9 +32,12 @@ class Node(QGraphicsItemGroup):
 
     def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0)):
         super().__init__(None)
+        self.arrows = set()
 
         self.setFlag(QGraphicsItemGroup.ItemIsMovable, True)
         self.setFlag(QGraphicsItemGroup.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setFiltersChildEvents(True)
 
         # --- Text items (created first, since the node width fits them) ---
         badge_font = QFont()
@@ -118,6 +122,25 @@ class Node(QGraphicsItemGroup):
         # slightly outside the body, is always included in scene updates.
         margin = self.SELECTION_OUTSET + 1
         return super().boundingRect().adjusted(-margin, -margin, margin, margin)
+
+    def rect_in_scene(self):
+        # Returns the rectangle shifted by its current position in the scene
+        return self.rect().translated(self.scenePos())
+
+    def itemChange(self, change, value):
+        if (
+            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
+            and self.arrows
+        ):
+            for arrow in self.arrows:
+                arrow.update_position()
+        return super().itemChange(change, value)
+
+    def toNodes(self):
+        return set([arr.to_node for arr in self.arrows])
+
+    def fromNodes(self):
+        return set([arr.from_node for arr in self.arrows])
 
     def paint(self, painter, option, widget=None):
         # Note: intentionally NOT calling QGraphicsItemGroup.paint() here. Qt's

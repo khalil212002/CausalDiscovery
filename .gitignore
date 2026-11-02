@@ -1,7 +1,9 @@
-# Python virtual environments
+﻿# Python virtual environments
 venv/
 .venv/
 env/
-.env/
+.env
+.env.*
+!.env.example
 __pycache__
 .vscode

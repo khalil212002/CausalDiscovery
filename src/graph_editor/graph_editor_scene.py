@@ -8,10 +8,9 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QRadioButton,
     QHBoxLayout,
-    QGraphicsRectItem,
 )
-from PySide6.QtGui import QBrush, QPen, QColor, QTransform
-from PySide6.QtCore import QPoint, QTimer, Qt
+from PySide6.QtGui import QTransform
+from PySide6.QtCore import Qt
 from models.var_types import VarTypes
 from graph_editor.node import Node
 from graph_editor.arrow import Arrow
@@ -35,6 +34,24 @@ class GraphEditorScene(QGraphicsScene):
         self.addItem(newNode)
         self.prevSelection = set()
         self.clearSelection()
+        return newNode.id
+
+    def deleteNode(self, node):
+        # delete node's arrows
+        for arrow in set(node.arrows):
+            arrow.detach()
+            self.removeItem(arrow)
+        self.prevSelection = self.getSelectedNodes() - set([node])
+        self.removeItem(node)
+
+    def addArrow(self, fromNode, toNode):
+        arr = Arrow(fromNode, toNode)
+        self.addItem(arr)
+
+    def deleteArrow(self, fromNode, toNode):
+        arr = [arr for arr in toNode.arrows if arr.from_node == fromNode][0]
+        arr.detach()
+        self.removeItem(arr)
 
     def mousePressEvent(self, event):
         self.prevPressPos = event.scenePos()
@@ -68,12 +85,7 @@ class GraphEditorScene(QGraphicsScene):
         # Delete Item
         if event.key() == Qt.Key.Key_Delete:
             for item in self.getSelectedNodes():
-                # delete node's arrows
-                for arrow in set(item.arrows):
-                    arrow.detach()
-                    self.removeItem(arrow)
-                self.prevSelection = self.getSelectedNodes() - set([item])
-                self.removeItem(item)
+                self.deleteNode(item)
             event.accept()
             return
         elif event.key() == Qt.Key.Key_Escape:
@@ -94,15 +106,10 @@ class GraphEditorScene(QGraphicsScene):
                         toItem not in fromItem.toNodes()
                         and fromItem not in toItem.fromNodes()
                     ):
-                        arr = Arrow(fromItem, toItem)
-                        self.addItem(arr)
+                        self.addArrow(fromItem, toItem)
 
                     else:
-                        arr = [
-                            arr for arr in toItem.arrows if arr.from_node == fromItem
-                        ][0]
-                        arr.detach()
-                        self.removeItem(arr)
+                        self.removeItem(fromItem, toItem)
         self.prevSelection = newSelection
 
 

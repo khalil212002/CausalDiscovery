@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QPoint, QPointF, QRectF
 from PySide6.QtGui import QPen, QColor, QFont, QPainterPath
 from models.var_types import VarTypes
 from models.var_colors import var_type_color
+import uuid
 
 
 class Node(QGraphicsItemGroup):
@@ -33,6 +34,8 @@ class Node(QGraphicsItemGroup):
     def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0)):
         super().__init__(None)
         self.arrows = set()
+        self.name = name
+        self.id = uuid.uuid4()
 
         self.setFlag(QGraphicsItemGroup.ItemIsMovable, True)
         self.setFlag(QGraphicsItemGroup.ItemIsSelectable, True)

@@ -1,15 +1,13 @@
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsView, QMainWindow, QApplication
-from graph_editor.graph_editor_scene import GraphEditorScene
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QGraphicsView, QMainWindow, QApplication
+from graph_editor.CPDAG_editor_scene import CPDAGEditorScene
 import sys
-from graph_editor.node import Node
 
 
 class GraphEditor(QGraphicsView):
     def __init__(self):
         super().__init__()
 
-        self.scene = GraphEditorScene()
+        self.scene = CPDAGEditorScene()
         self.setScene(self.scene)
 
     def resizeEvent(self, event):

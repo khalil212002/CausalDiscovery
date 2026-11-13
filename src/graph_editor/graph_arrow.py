@@ -2,22 +2,17 @@ from PySide6.QtWidgets import QGraphicsLineItem
 from PySide6.QtCore import QLineF, QPointF, Qt
 from PySide6.QtGui import QBrush, QPen, QPolygonF
 import math
+from CPDAG.arrow import Arrow
 
 
-class Arrow(QGraphicsLineItem):
+class GraphArrow(Arrow, QGraphicsLineItem):
     ARROW_WIDTH = 2
     ARROW_COLOR = Qt.GlobalColor.gray
     ARROW_HEAD_SIZE = 7
 
-    def __init__(self, from_node, to_node):
-        super().__init__()
-
-        self.from_node = from_node
-        self.to_node = to_node
-        self.from_node.arrows.add(self)
-        self.to_node.arrows.add(self)
-
-        self.update_position()
+    def __init__(self):
+        Arrow.__init__(self)
+        QGraphicsLineItem.__init__(self)
         self.setPen(
             QPen(
                 self.ARROW_COLOR,
@@ -28,9 +23,9 @@ class Arrow(QGraphicsLineItem):
             )
         )
 
-    def detach(self):
-        self.from_node.arrows.remove(self)
-        self.to_node.arrows.remove(self)
+    def attach(self, fromNode, toNode):
+        super().attach(fromNode, toNode)
+        self.update_position()
 
     def boundingRect(self):
         # Start with the basic box containing just the line line
@@ -59,13 +54,15 @@ class Arrow(QGraphicsLineItem):
         return None
 
     def update_position(self):
-        c1 = self.from_node.sceneBoundingRect().center()
-        c2 = self.to_node.sceneBoundingRect().center()
+        if not self.isAttached():
+            return
+        c1 = self.fromNode.sceneBoundingRect().center()
+        c2 = self.toNode.sceneBoundingRect().center()
         center_line = QLineF(c1, c2)
 
         # Get full scene-space rectangles enclosing all contents inside the groups
-        rect1 = self.from_node.sceneBoundingRect()
-        rect2 = self.to_node.sceneBoundingRect()
+        rect1 = self.fromNode.sceneBoundingRect()
+        rect2 = self.toNode.sceneBoundingRect()
 
         p1 = self.find_rect_intersection(center_line, rect1)
         p2 = self.find_rect_intersection(center_line, rect2)
@@ -80,7 +77,7 @@ class Arrow(QGraphicsLineItem):
         self.setLine(line)
 
     def paint(self, painter, option, /, widget=...):
-        if self.from_node.collidesWithItem(self.to_node):
+        if not self.isAttached() or self.fromNode.collidesWithItem(self.toNode):
             return
 
         pen = self.pen()

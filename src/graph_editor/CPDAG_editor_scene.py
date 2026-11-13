@@ -1,12 +1,14 @@
 from graph_editor.graph_editor_scene import GraphEditorScene
 from CPDAG.CPDAG import CPDAG
 import networkx as nx
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QMessageBox
 import matplotlib.pyplot as plt
 
 
 class CPDAGEditorScene(GraphEditorScene):
+    graphChanged = Signal()
+
     def __init__(self):
         super().__init__()
         self.cpdag = CPDAG()
@@ -18,20 +20,24 @@ class CPDAGEditorScene(GraphEditorScene):
             return None
         node = super().addNode(pos, name, type)
         self.cpdag.add_variable(node)
+        self.graphChanged.emit()
         return node
 
     def deleteNode(self, node):
         super().deleteNode(node)
         self.cpdag.remove_variable(node)
+        self.graphChanged.emit()
 
     def addArrow(self, fromNode, toNode):
         arr = super().addArrow(fromNode, toNode)
         self.cpdag.add_arrow(fromNode, toNode, arr)
+        self.graphChanged.emit()
         return arr
 
     def deleteArrow(self, fromNode, toNode):
         arr = super().deleteArrow(fromNode, toNode)
         self.cpdag.remove_arrow(fromNode, toNode)
+        self.graphChanged.emit()
         return arr
 
     def keyPressEvent(self, event):

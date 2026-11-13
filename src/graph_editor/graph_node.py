@@ -8,10 +8,10 @@ from PySide6.QtCore import Qt, QPoint, QPointF, QRectF
 from PySide6.QtGui import QPen, QColor, QFont, QPainterPath
 from models.var_types import VarTypes
 from models.var_colors import var_type_color
-import uuid
+from CPDAG.node import Node
 
 
-class Node(QGraphicsItemGroup):
+class GraphNode(Node, QGraphicsItemGroup):
     # Geometry (local coordinates, origin at the top-left corner)
     MIN_WIDTH = 120  # nodes never shrink below this, even for tiny names
     HEIGHT = 70
@@ -32,10 +32,8 @@ class Node(QGraphicsItemGroup):
     SELECTION_OUTSET = 4  # how far the ring sits outside the node body
 
     def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0)):
-        super().__init__(None)
-        self.arrows = set()
-        self.name = name
-        self.id = uuid.uuid4()
+        Node.__init__(self, name, type)
+        QGraphicsItemGroup.__init__(self)
 
         self.setFlag(QGraphicsItemGroup.ItemIsMovable, True)
         self.setFlag(QGraphicsItemGroup.ItemIsSelectable, True)
@@ -126,24 +124,11 @@ class Node(QGraphicsItemGroup):
         margin = self.SELECTION_OUTSET + 1
         return super().boundingRect().adjusted(-margin, -margin, margin, margin)
 
-    def rect_in_scene(self):
-        # Returns the rectangle shifted by its current position in the scene
-        return self.rect().translated(self.scenePos())
-
     def itemChange(self, change, value):
-        if (
-            change == QGraphicsItem.GraphicsItemChange.ItemPositionChange
-            and self.arrows
-        ):
-            for arrow in self.arrows:
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            for arrow in self.arrows():
                 arrow.update_position()
         return super().itemChange(change, value)
-
-    def toNodes(self):
-        return set([arr.to_node for arr in self.arrows])
-
-    def fromNodes(self):
-        return set([arr.from_node for arr in self.arrows])
 
     def paint(self, painter, option, widget=None):
         # Note: intentionally NOT calling QGraphicsItemGroup.paint() here. Qt's

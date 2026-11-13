@@ -22,7 +22,8 @@ class GraphEditorScene(QGraphicsScene):
         super().__init__()
 
         self.prevSelection = set()
-        self.selectionChanged.connect(self.itemSelected)
+        self.prevPressPos = None
+        self.pressedSelectedItem = None
 
     def addNodeDialog(self, pos):
         dialog = AddNodeDialog()
@@ -65,9 +66,7 @@ class GraphEditorScene(QGraphicsScene):
                 QGraphicsItem.GraphicsItemFlag.ItemIsSelectable in item.flags()
             )
             if is_selectable and item.isSelected():
-                item.setSelected(False)
-                event.accept()
-                return
+                self.pressedSelectedItem = item
         else:
             if event.button() == Qt.MouseButton.LeftButton:
                 self.addNodeDialog(event.scenePos())
@@ -76,9 +75,16 @@ class GraphEditorScene(QGraphicsScene):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
         if event.scenePos() != self.prevPressPos:
             self.clearSelection()
-        return super().mouseReleaseEvent(event)
+            self.prevSelection = set()
+        elif self.pressedSelectedItem is not None:
+            self.pressedSelectedItem.setSelected(False)
+            self.prevSelection = self.getSelectedNodes()
+        else:
+            self.itemSelected()
+        self.pressedSelectedItem = None
 
     def keyPressEvent(self, event):
         # Delete Item
@@ -100,13 +106,20 @@ class GraphEditorScene(QGraphicsScene):
     def itemSelected(self):
         # add arrow
         newSelection = self.getSelectedNodes()
-        if newSelection and not (newSelection & self.prevSelection):
+        if (
+            newSelection
+            and self.prevSelection
+            and not (newSelection & self.prevSelection)
+        ):
             for fromItem in self.prevSelection:
                 for toItem in newSelection:
                     if toItem not in fromItem.toNodes():
                         self.addArrow(fromItem, toItem)
                     else:
                         self.deleteArrow(fromItem, toItem)
+            self.clearSelection()
+            self.prevSelection = set()
+            return
         self.prevSelection = newSelection
 
 
@@ -136,8 +149,14 @@ class AddNodeDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
+        self.okButton = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self.okButton.setEnabled(False)
+        self.var_name.textChanged.connect(
+            lambda: self.okButton.setEnabled(bool(self.get_name()))
+        )
+
     def get_name(self):
-        return self.var_name.text()
+        return self.var_name.text().strip()
 
     def get_type(self):
         return next((n[1] for n in self.nodeTypesRadios if n[0].isChecked()), None)

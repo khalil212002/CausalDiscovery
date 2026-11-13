@@ -1,45 +1,66 @@
 from graph_editor.graph_editor_scene import GraphEditorScene
+from CPDAG.CPDAG import CPDAG
 import networkx as nx
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QMessageBox
 import matplotlib.pyplot as plt
 
 
 class CPDAGEditorScene(GraphEditorScene):
+    graphChanged = Signal()
+
     def __init__(self):
         super().__init__()
-        self.graph = nx.DiGraph()
+        self.cpdag = CPDAG()
+        self.plotFigure = None
 
     def addNode(self, pos, name, type):
-        id = super().addNode(pos, name, type)
-        self.graph.add_node(id)
+        if self.cpdag.has_variable(name):
+            QMessageBox.warning(None, "Add Variable", f"'{name}' already exists.")
+            return None
+        node = super().addNode(pos, name, type)
+        self.cpdag.add_variable(node)
+        self.graphChanged.emit()
+        return node
 
     def deleteNode(self, node):
         super().deleteNode(node)
-        self.graph.remove_node(node.id)
+        self.cpdag.remove_variable(node)
+        self.graphChanged.emit()
 
     def addArrow(self, fromNode, toNode):
-        super().addArrow(fromNode, toNode)
-        self.graph.add_edge(fromNode.id, toNode.id)
+        arr = super().addArrow(fromNode, toNode)
+        self.cpdag.add_arrow(fromNode, toNode, arr)
+        self.graphChanged.emit()
+        return arr
 
     def deleteArrow(self, fromNode, toNode):
-        super().deleteArrow(fromNode, toNode)
-        self.graph.remove_edge(fromNode.id, toNode.id)
+        arr = super().deleteArrow(fromNode, toNode)
+        self.cpdag.remove_arrow(fromNode, toNode)
+        self.graphChanged.emit()
+        return arr
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_G:
+            if self.plotFigure is None or not plt.fignum_exists(
+                self.plotFigure.number
+            ):
+                self.plotFigure = plt.figure()
+            else:
+                self.plotFigure.clear()
+            graph = self.cpdag.toCPDAG()
             nx.draw(
-                self.graph,
-                nx.spring_layout(self.graph),
-                with_labels=True,
+                graph,
+                nx.spring_layout(graph),
+                ax=self.plotFigure.add_subplot(),
+                labels={node: node.name for node in graph.nodes},
                 node_color="lightblue",
                 node_size=700,
                 font_weight="bold",
                 arrows=True,
             )
-            plt.exec()
+            self.plotFigure.canvas.draw_idle()
+            plt.show(block=False)
             event.accept()
             return
         super().keyPressEvent(event)
-
-    def getGraph(self):
-        return self.graph

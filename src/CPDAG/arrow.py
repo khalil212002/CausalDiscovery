@@ -14,6 +14,16 @@ class Arrow:
     def isAttached(self) -> bool:
         return self.fromNode is not None and self.toNode is not None
 
+    def oppositeArrow(self) -> Arrow | None:
+        if not self.isAttached():
+            return None
+        return next(
+            (a for a in self.toNode.outArrows if a.toNode is self.fromNode), None
+        )
+
+    def isUndirected(self) -> bool:
+        return self.oppositeArrow() is not None
+
     def attach(self, fromNode: Node, toNode: Node):
         self.fromNode = fromNode
         self.toNode = toNode

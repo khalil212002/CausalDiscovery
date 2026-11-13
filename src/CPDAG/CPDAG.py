@@ -11,7 +11,34 @@ class CPDAG(nx.DiGraph):
     def has_variable(self, name: str) -> bool:
         return any(node.name == name for node in self.nodes)
 
+    def is_undirected(self, u: Node, v: Node) -> bool:
+        return self.has_edge(u, v) and self.has_edge(v, u)
+
+    def directed_edges(self) -> list[tuple[Node, Node]]:
+        return [(u, v) for u, v in self.edges if not self.has_edge(v, u)]
+
+    def undirected_edges(self) -> list[tuple[Node, Node]]:
+        seen = set()
+        result = []
+        for u, v in self.edges:
+            if self.has_edge(v, u) and (v, u) not in seen:
+                seen.add((u, v))
+                result.append((u, v))
+        return result
+
+    def toCPDAG(self) -> "CPDAG":
+        graph = CPDAG()
+        nodes = {
+            node: graph.add_variable(Node(node.name, node.varType))
+            for node in self.nodes
+        }
+        for u, v in self.edges:
+            graph.add_arrow(nodes[u], nodes[v])
+        return graph
+
     def add_variable(self, node: Node) -> Node:
+        if not node.name.strip():
+            raise ValueError("Variable name can't be empty")
         if node in self:
             raise ValueError(f"Variable '{node.name}' already exists")
         self.add_node(node)

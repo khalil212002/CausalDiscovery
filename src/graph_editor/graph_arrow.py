@@ -26,6 +26,15 @@ class GraphArrow(Arrow, QGraphicsLineItem):
     def attach(self, fromNode, toNode):
         super().attach(fromNode, toNode)
         self.update_position()
+        partner = self.oppositeArrow()
+        if partner is not None:
+            partner.update()
+
+    def detach(self):
+        partner = self.oppositeArrow()
+        super().detach()
+        if partner is not None:
+            partner.update()
 
     def boundingRect(self):
         # Start with the basic box containing just the line line
@@ -87,6 +96,13 @@ class GraphArrow(Arrow, QGraphicsLineItem):
 
         # Get line coordinates
         line = self.line()
+
+        partner = self.oppositeArrow()
+        if partner is not None:
+            if id(partner) < id(self):
+                return
+            painter.drawLine(line)
+            return
 
         # Calculate angle of the line
         # Calculate the base trajectory angle of the line

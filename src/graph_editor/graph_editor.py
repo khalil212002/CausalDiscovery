@@ -1,14 +1,19 @@
+import sys
+from pathlib import Path
+
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from PySide6.QtWidgets import QGraphicsView, QMainWindow, QApplication
 from graph_editor.CPDAG_editor_scene import CPDAGEditorScene
-import sys
 
 
 class GraphEditor(QGraphicsView):
     def __init__(self):
         super().__init__()
 
-        self.scene = CPDAGEditorScene()
-        self.setScene(self.scene)
+        self.editorScene = CPDAGEditorScene()
+        self.setScene(self.editorScene)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -17,7 +22,7 @@ class GraphEditor(QGraphicsView):
         width = view_size.width()
         height = view_size.height()
 
-        self.scene.setSceneRect(0, 0, width, height)
+        self.editorScene.setSceneRect(0, 0, width, height)
 
 
 class GraphEditorTestWindow(QMainWindow):

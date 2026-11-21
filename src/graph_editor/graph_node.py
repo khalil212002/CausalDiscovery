@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QPoint, QPointF, QRectF
 from PySide6.QtGui import QPen, QColor, QFont, QPainterPath
 from models.var_types import VarTypes
+from models import ui_colors
 from models.var_colors import var_type_color
 from CPDAG.node import Node
 
@@ -21,14 +22,15 @@ class GraphNode(Node, QGraphicsItemGroup):
     BADGE_PAD = 5  # horizontal padding inside the badge
     BADGE_INSET = 8  # distance from the badge to the node's top/left edge
     NAME_PAD = 16  # horizontal padding kept around the full name
+    NAME_FONT_SIZE = 10
+    BORDER_WIDTH = 2
 
-    # Neutral colors for the node itself, readable on dark and bright canvases
-    BODY_FILL = QColor("#c1c6cd")
-    TEXT = QColor("#161b22")  # name text and badge text (dark on every type color)
+    BODY_FILL = QColor(ui_colors.NODE_BODY_FILL)
+    TEXT = QColor(ui_colors.NODE_TEXT)
 
     # Selection highlight: white ring drawn around the node
-    SELECTION_COLOR = QColor("white")
-    SELECTION_HALO = QColor(255, 255, 255, 40)
+    SELECTION_COLOR = QColor(ui_colors.SELECTION_RING)
+    SELECTION_HALO = QColor(ui_colors.SELECTION_HALO)
     SELECTION_OUTSET = 4  # how far the ring sits outside the node body
 
     def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0)):
@@ -50,7 +52,7 @@ class GraphNode(Node, QGraphicsItemGroup):
         self._badge_text.setBrush(self.TEXT)
 
         name_font = QFont()
-        name_font.setPointSize(10)
+        name_font.setPointSize(self.NAME_FONT_SIZE)
         name_font.setBold(True)
 
         self._name_text = QGraphicsSimpleTextItem(name)  # full name, never elided
@@ -74,7 +76,7 @@ class GraphNode(Node, QGraphicsItemGroup):
         )
         self._rect = QGraphicsPathItem(body_path)
         # Border uses the same color as the badge (the node's type color)
-        self._rect.setPen(QPen(QColor(var_type_color(type)), 2))
+        self._rect.setPen(QPen(QColor(var_type_color(type)), self.BORDER_WIDTH))
         self._rect.setBrush(self.BODY_FILL)
 
         # --- Badge inside the top-left of the body, colored by the node type ---

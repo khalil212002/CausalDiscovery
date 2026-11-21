@@ -1,14 +1,17 @@
 from PySide6.QtWidgets import QGraphicsLineItem
 from PySide6.QtCore import QLineF, QPointF, Qt
-from PySide6.QtGui import QBrush, QPen, QPolygonF
+from PySide6.QtGui import QBrush, QColor, QPen, QPolygonF
 import math
 from CPDAG.arrow import Arrow
+from models import ui_colors
 
 
 class GraphArrow(Arrow, QGraphicsLineItem):
     ARROW_WIDTH = 2
-    ARROW_COLOR = Qt.GlobalColor.gray
+    ARROW_COLOR = QColor(ui_colors.ARROW)
     ARROW_HEAD_SIZE = 7
+    ARROW_HEAD_SPREAD = math.pi / 6  # angle of each wing from the line (30°)
+    LINE_EXTENSION = 3  # push the tip slightly into the target node's border
 
     def __init__(self):
         Arrow.__init__(self)
@@ -82,7 +85,7 @@ class GraphArrow(Arrow, QGraphicsLineItem):
             p2 = c2
 
         line = QLineF(p1, p2)
-        line.setLength(line.length() + 3)
+        line.setLength(line.length() + self.LINE_EXTENSION)
         self.setLine(line)
 
     def paint(self, painter, option, /, widget=...):
@@ -109,14 +112,14 @@ class GraphArrow(Arrow, QGraphicsLineItem):
         angle = math.atan2(line.dy(), line.dx())
 
         # Corrected arrowhead wing offsets for screen-space geometry (Y down)
-        # Using 30 degrees (pi / 6) spread on either side of the backward vector (angle + pi)
+        # Spread ARROW_HEAD_SPREAD on either side of the backward vector (angle + pi)
         arrow_p1 = line.p2() + QPointF(
-            math.cos(angle + math.pi + math.pi / 6) * self.ARROW_HEAD_SIZE,
-            math.sin(angle + math.pi + math.pi / 6) * self.ARROW_HEAD_SIZE,
+            math.cos(angle + math.pi + self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
+            math.sin(angle + math.pi + self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
         )
         arrow_p2 = line.p2() + QPointF(
-            math.cos(angle + math.pi - math.pi / 6) * self.ARROW_HEAD_SIZE,
-            math.sin(angle + math.pi - math.pi / 6) * self.ARROW_HEAD_SIZE,
+            math.cos(angle + math.pi - self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
+            math.sin(angle + math.pi - self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
         )
 
         arrow_head = QPolygonF([line.p2(), arrow_p1, arrow_p2])

@@ -6,6 +6,7 @@ if __name__ == "__main__":
 
 from PySide6.QtWidgets import QGraphicsView, QMainWindow, QApplication
 from graph_editor.CPDAG_editor_scene import CPDAGEditorScene
+from models.app_info import APP_NAME, MAIN_WINDOW_SIZE
 
 
 class GraphEditor(QGraphicsView):
@@ -28,8 +29,8 @@ class GraphEditor(QGraphicsView):
 class GraphEditorTestWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Causalitty - Graph Editor Test")
-        self.resize(1200, 800)
+        self.setWindowTitle(f"{APP_NAME} - Graph Editor Test")
+        self.resize(*MAIN_WINDOW_SIZE)
         self.setCentralWidget(GraphEditor())
 
 

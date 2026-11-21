@@ -4,10 +4,13 @@ import networkx as nx
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QMessageBox
 import matplotlib.pyplot as plt
+from models import ui_colors
 
 
 class CPDAGEditorScene(GraphEditorScene):
     graphChanged = Signal()
+
+    PLOT_NODE_SIZE = 700
 
     def __init__(self):
         super().__init__()
@@ -54,8 +57,8 @@ class CPDAGEditorScene(GraphEditorScene):
                 nx.spring_layout(graph),
                 ax=self.plotFigure.add_subplot(),
                 labels={node: node.name for node in graph.nodes},
-                node_color="lightblue",
-                node_size=700,
+                node_color=ui_colors.CPDAG_PLOT_NODE,
+                node_size=self.PLOT_NODE_SIZE,
                 font_weight="bold",
                 arrows=True,
             )

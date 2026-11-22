@@ -14,6 +14,7 @@ class EdgeType(StrEnum):
     NO_EDGE = auto()  # agree there is no causal link
     CONFLICT = auto()  # disagree on whether a link exists; researcher decides
     NO_EVIDENCE = auto()  # no meta-analyses found for this pair
+    ERROR = auto()  # the search failed (summary says why); try again later
 
 
 @dataclass
@@ -23,6 +24,7 @@ class Evidence:
     pmid: str  # PubMed ID, so the researcher can open the paper
     title: str
     claim: str  # one-line summary of what the paper says about the pair
+    abstract: str = ""  # the full abstract the LLM read
 
 
 @dataclass

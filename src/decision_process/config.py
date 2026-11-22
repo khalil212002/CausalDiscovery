@@ -9,6 +9,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from decision_process.errors import LLMAuthError
+
 # This file is src/decision_process/config.py, so the root is two folders up
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,7 +24,7 @@ NCBI_API_KEY: str | None = os.getenv("NCBI_API_KEY") or None  # optional
 def require_gemini_api_key() -> str:
     """The Gemini API key, or a clear error if it is missing from .env."""
     if not GEMINI_API_KEY:
-        raise RuntimeError(
+        raise LLMAuthError(
             f"GEMINI_API_KEY is not set. Add it to {PROJECT_ROOT / '.env'}"
         )
     return GEMINI_API_KEY

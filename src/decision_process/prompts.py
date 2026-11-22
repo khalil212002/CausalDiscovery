@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass
 from enum import StrEnum
 
+from decision_process.errors import LLMBadResponse
 from decision_process.pubmed_client import Article
 
 
@@ -88,13 +89,21 @@ def parse_pair_response(text: str, articles: list[Article]) -> PairAnalysis:
     """Read the LLM's JSON answer.
 
     Papers the LLM skipped or gave an unknown verdict are treated as
-    not relevant, and PMIDs we never sent are ignored. Raises ValueError if
-    the answer is not JSON at all.
+    not relevant, and PMIDs we never sent are ignored. Raises LLMBadResponse
+    if the answer is not the JSON object we asked for.
     """
-    data = json.loads(_strip_code_fence(text))
+    try:
+        data = json.loads(_strip_code_fence(text))
+    except ValueError as e:
+        raise LLMBadResponse("The LLM's answer could not be read.") from e
+    if not isinstance(data, dict):
+        raise LLMBadResponse("The LLM's answer could not be read.")
 
+    papers = data.get("papers")
     answered = {}
-    for paper in data.get("papers", []):
+    for paper in papers if isinstance(papers, list) else []:
+        if not isinstance(paper, dict):
+            continue
         pmid = str(paper.get("pmid", ""))
         try:
             verdict = PaperVerdict(paper.get("verdict"))

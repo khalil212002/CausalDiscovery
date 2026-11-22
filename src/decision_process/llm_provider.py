@@ -10,4 +10,9 @@ from abc import ABC, abstractmethod
 class LLMProvider(ABC):
     @abstractmethod
     def generate(self, prompt: str) -> str:
-        """Send a prompt to the LLM and return its text answer."""
+        """Send a prompt to the LLM and return its text answer.
+
+        Must raise a DecisionProcessError subclass (see errors.py) on
+        failure, never the provider library's own exceptions, so the rest of
+        the code can handle any provider's errors the same way.
+        """

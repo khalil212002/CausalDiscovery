@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import requests
 
 from decision_process.config import NCBI_API_KEY
+from decision_process.errors import PubMedUnavailable
 
 EUTILS_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 TIMEOUT_SECONDS = 15
@@ -36,7 +37,8 @@ class Article:
 def search_meta_analyses(var_a: str, var_b: str, max_results: int = 10) -> list[Article]:
     """Meta-analyses that mention both variables, most relevant first.
 
-    Returns an empty list when PubMed finds nothing.
+    Returns an empty list when PubMed finds nothing. Raises PubMedUnavailable
+    if PubMed can't be reached or its answer can't be read.
     """
     # Papers naming both variables in the title are the most on-topic, but
     # there are often only a few. Fill the remaining slots with papers that
@@ -67,7 +69,9 @@ def _base_params() -> dict:
 def _get(endpoint: str, params: dict) -> requests.Response:
     """GET an E-utilities endpoint, spacing requests to stay under the rate limit.
 
-    If PubMed still says "too many requests", wait a moment and try again.
+    Temporary failures (too many requests, server errors, timeouts, lost
+    connection) are retried after a short wait. Raises PubMedUnavailable if
+    the request still fails.
     """
     global _last_request
     for attempt in range(_MAX_RETRIES + 1):
@@ -76,10 +80,28 @@ def _get(endpoint: str, params: dict) -> requests.Response:
             if wait > 0:
                 time.sleep(wait)
             _last_request = time.monotonic()
-        response = requests.get(f"{EUTILS_URL}/{endpoint}", params=params, timeout=TIMEOUT_SECONDS)
-        if response.status_code != 429 or attempt == _MAX_RETRIES:
-            return response
+
+        last_try = attempt == _MAX_RETRIES
+        try:
+            response = requests.get(
+                f"{EUTILS_URL}/{endpoint}", params=params, timeout=TIMEOUT_SECONDS
+            )
+        except requests.RequestException as e:  # timeout, no internet, DNS, ...
+            if last_try:
+                raise PubMedUnavailable(
+                    "Couldn't reach PubMed. Check your internet connection."
+                ) from e
+        else:
+            if response.ok:
+                return response
+            temporary = response.status_code == 429 or response.status_code >= 500
+            if not temporary or last_try:
+                raise PubMedUnavailable(
+                    f"PubMed returned an error (HTTP {response.status_code}). "
+                    "Try again in a few minutes."
+                )
         time.sleep(1 + attempt)  # 1s, 2s, 3s
+    raise AssertionError("unreachable")
 
 
 def _search_ids(query: str, max_results: int) -> list[str]:
@@ -90,16 +112,20 @@ def _search_ids(query: str, max_results: int) -> list[str]:
         "retmode": "json",
     }
     response = _get("esearch.fcgi", params)
-    response.raise_for_status()
-    return response.json()["esearchresult"]["idlist"]
+    try:
+        return response.json()["esearchresult"]["idlist"]
+    except (ValueError, KeyError, TypeError) as e:
+        raise PubMedUnavailable("PubMed returned an unreadable search result.") from e
 
 
 def _fetch_articles(pmids: list[str]) -> list[Article]:
     params = _base_params() | {"id": ",".join(pmids), "retmode": "xml"}
     response = _get("efetch.fcgi", params)
-    response.raise_for_status()
 
-    root = ET.fromstring(response.content)
+    try:
+        root = ET.fromstring(response.content)
+    except ET.ParseError as e:
+        raise PubMedUnavailable("PubMed returned unreadable article data.") from e
     articles = [_parse_article(node) for node in root.iter("PubmedArticle")]
     # efetch doesn't promise to keep our order, so restore relevance order
     articles.sort(key=lambda a: pmids.index(a.pmid) if a.pmid in pmids else len(pmids))

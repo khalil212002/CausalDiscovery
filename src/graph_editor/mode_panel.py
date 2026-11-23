@@ -21,27 +21,30 @@ class EditorModePanel(QFrame):
     SPACING = 2
     CORNER_RADIUS = 8
 
-    # (mode, label, icon, shortcut, tooltip)
+    # (mode, label, (icon, qtawesome options), shortcut, tooltip)
     MODES = [
         (
             EditorMode.NODES,
             "Nodes",
-            "mdi6.circle-outline",
+            # Rotated so its circles line up with the Arrows icon's
+            ("ph.circles-three-fill", {"rotated": 270}),
             "1",
-            "Add nodes by clicking empty space, and drag them around",
+            "Add nodes by clicking empty space, drag them around, and click "
+            "a node or an arrow to edit its properties",
         ),
         (
             EditorMode.ARROWS,
             "Arrows",
-            "mdi6.ray-start-arrow",
+            ("fa6s.share-nodes", {}),
             "2",
             "Click a source node then a target node (or drag between them) "
-            "to add or remove an arrow",
+            "to add or remove an arrow, and click an arrow to edit its "
+            "properties",
         ),
         (
             EditorMode.SELECT,
             "Select",
-            "mdi6.book-search-outline",
+            ("mdi6.book-search-outline", {}),
             "3",
             "Select several nodes by clicking them or dragging a box",
         ),
@@ -85,8 +88,8 @@ class EditorModePanel(QFrame):
         self.onModeChanged(self.scene.mode)
 
     def setIcons(self):
-        for mode, _, icon, _, _ in self.MODES:
-            self.modeActions[mode].setIcon(qta.icon(icon))
+        for mode, _, (icon, options), _, _ in self.MODES:
+            self.modeActions[mode].setIcon(qta.icon(icon, **options))
 
     def onModeChanged(self, mode):
         self.modeActions[mode].setChecked(True)

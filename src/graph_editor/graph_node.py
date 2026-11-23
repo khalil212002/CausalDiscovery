@@ -59,40 +59,15 @@ class GraphNode(Node, QGraphicsItemGroup):
         self._name_text.setFont(name_font)
         self._name_text.setBrush(self.TEXT)
 
-        self._badge_width = (
-            self._badge_text.boundingRect().width() + 2 * self.BADGE_PAD
-        )
-
         self.WIDTH = self.MIN_WIDTH  # stretched to fit the name in _layout()
 
-        # --- Body: rounded rectangle, its path is set in _layout() ---
+        # --- Body (rounded rectangle) and badge; paths are set in _layout()
+        # and type colors in _applyTypeColor() ---
         self._rect = QGraphicsPathItem()
-        # Border uses the same color as the badge (the node's type color)
-        self._rect.setPen(QPen(QColor(var_type_color(type)), self.BORDER_WIDTH))
         self._rect.setBrush(self.BODY_FILL)
-
-        # --- Badge inside the top-left of the body, colored by the node type ---
-        badge_rect = QRectF(
-            self.BADGE_INSET,
-            self.BADGE_INSET,
-            self._badge_width,
-            self.BADGE_HEIGHT,
-        )
-        badge_path = QPainterPath()
-        badge_path.addRoundedRect(
-            badge_rect,
-            self.CORNER_RADIUS // 2,
-            self.CORNER_RADIUS // 2,
-        )
-        self._badge = QGraphicsPathItem(badge_path)
+        self._badge = QGraphicsPathItem()
         self._badge.setPen(QPen(Qt.PenStyle.NoPen))
-        self._badge.setBrush(QColor(var_type_color(type)))
-
-        self._badge_text.setPos(
-            badge_rect.left() + self.BADGE_PAD,
-            badge_rect.top()
-            + (self.BADGE_HEIGHT - self._badge_text.boundingRect().height()) / 2,
-        )
+        self._applyTypeColor()
 
         # Add sub-items securely to this group instance (bottom to top)
         self.addToGroup(self._rect)
@@ -106,13 +81,35 @@ class GraphNode(Node, QGraphicsItemGroup):
         # `pos` is the desired center of the node, so offset by half its size.
         self.setPos(QPointF(pos) - QPointF(self.WIDTH / 2, self.HEIGHT / 2))
 
+    def _applyTypeColor(self):
+        # Border and badge both use the node's type color
+        color = QColor(var_type_color(self.varType))
+        self._rect.setPen(QPen(color, self.BORDER_WIDTH))
+        self._badge.setBrush(color)
+
     def _layout(self):
+        # Badge inside the top-left of the body, sized to its text
+        badge_width = self._badge_text.boundingRect().width() + 2 * self.BADGE_PAD
+        badge_rect = QRectF(
+            self.BADGE_INSET, self.BADGE_INSET, badge_width, self.BADGE_HEIGHT
+        )
+        badge_path = QPainterPath()
+        badge_path.addRoundedRect(
+            badge_rect, self.CORNER_RADIUS // 2, self.CORNER_RADIUS // 2
+        )
+        self._badge.setPath(badge_path)
+        self._badge_text.setPos(
+            badge_rect.left() + self.BADGE_PAD,
+            badge_rect.top()
+            + (self.BADGE_HEIGHT - self._badge_text.boundingRect().height()) / 2,
+        )
+
         # Stretch the width to always fit the full name and the badge, then
         # center the name in the body.
         self.prepareGeometryChange()
         self.WIDTH = max(
             self.MIN_WIDTH,
-            self._badge_width + 2 * self.BADGE_INSET,
+            badge_width + 2 * self.BADGE_INSET,
             self._name_text.boundingRect().width() + 2 * self.NAME_PAD,
         )
 
@@ -131,10 +128,19 @@ class GraphNode(Node, QGraphicsItemGroup):
         )
 
     def rename(self, name: str):
-        # Keep the node centered where it was while its width changes
-        center = self.pos() + QPointF(self.WIDTH / 2, self.HEIGHT / 2)
         super().rename(name)
         self._name_text.setText(name)
+        self._relayoutCentered()
+
+    def setVarType(self, varType: VarTypes):
+        super().setVarType(varType)
+        self._badge_text.setText(str(varType).upper())
+        self._applyTypeColor()
+        self._relayoutCentered()
+
+    def _relayoutCentered(self):
+        # Keep the node centered where it was while its width changes
+        center = self.pos() + QPointF(self.WIDTH / 2, self.HEIGHT / 2)
         self._layout()
         self.setPos(center - QPointF(self.WIDTH / 2, self.HEIGHT / 2))
         for arrow in self.arrows():

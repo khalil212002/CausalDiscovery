@@ -12,9 +12,6 @@ NODE_TEXT: str = "#161b22"  # name and badge text (dark on every type color)
 SELECTION_RING: str = "#ffffff"
 SELECTION_HALO: str = "#28ffffff"  # white at 40/255 opacity (#AARRGGBB)
 
-# Graph editor arrows
-ARROW: str = "#a0a0a4"  # Qt's standard gray
-
 # Splash screen
 SPLASH_BACKGROUND: str = "#1e1f22"
 SPLASH_TITLE: str = "#e6e6e6"

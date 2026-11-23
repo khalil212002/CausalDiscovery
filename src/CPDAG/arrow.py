@@ -2,14 +2,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from models.arrow_types import ArrowTypes
+
 if TYPE_CHECKING:
     from CPDAG.node import Node
 
 
 class Arrow:
-    def __init__(self):
+    def __init__(self, arrowType: ArrowTypes = ArrowTypes.USER):
+        self.arrowType = arrowType
         self.fromNode: Node | None = None
         self.toNode: Node | None = None
+
+    def setArrowType(self, arrowType: ArrowTypes):
+        self.arrowType = arrowType
 
     def isAttached(self) -> bool:
         return self.fromNode is not None and self.toNode is not None

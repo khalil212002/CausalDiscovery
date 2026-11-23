@@ -37,8 +37,8 @@ class CPDAG(nx.DiGraph):
             node: graph.add_variable(Node(node.name, node.varType, node.id))
             for node in self.nodes
         }
-        for u, v in self.edges:
-            graph.add_arrow(nodes[u], nodes[v])
+        for u, v, arrow in self.edges(data="arrow"):
+            graph.add_arrow(nodes[u], nodes[v], Arrow(arrow.arrowType))
         return graph
 
     def to_pgmpy_dag(self) -> DAG:
@@ -106,6 +106,10 @@ class CPDAG(nx.DiGraph):
         if self.has_variable(name, exclude=node):
             raise ValueError(f"Variable '{name}' already exists")
         node.rename(name)
+        return node
+
+    def set_variable_type(self, node: Node, varType: VarTypes) -> Node:
+        node.setVarType(varType)
         return node
 
     def add_arrow(

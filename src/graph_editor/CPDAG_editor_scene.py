@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QMessageBox
 import matplotlib.pyplot as plt
 from models import ui_colors
+from models.arrow_types import ArrowTypes
 
 
 class CPDAGEditorScene(GraphEditorScene):
@@ -39,8 +40,12 @@ class CPDAGEditorScene(GraphEditorScene):
             return
         self.graphChanged.emit()
 
-    def addArrow(self, fromNode, toNode):
-        arr = super().addArrow(fromNode, toNode)
+    def setNodeType(self, node, varType):
+        self.cpdag.set_variable_type(node, varType)
+        self.graphChanged.emit()
+
+    def addArrow(self, fromNode, toNode, arrowType=ArrowTypes.USER):
+        arr = super().addArrow(fromNode, toNode, arrowType)
         self.cpdag.add_arrow(fromNode, toNode, arr)
         self.graphChanged.emit()
         return arr
@@ -50,6 +55,10 @@ class CPDAGEditorScene(GraphEditorScene):
         self.cpdag.remove_arrow(fromNode, toNode)
         self.graphChanged.emit()
         return arr
+
+    def setArrowType(self, arrow, arrowType):
+        super().setArrowType(arrow, arrowType)
+        self.graphChanged.emit()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_G:

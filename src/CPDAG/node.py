@@ -30,6 +30,9 @@ class Node:
     def rename(self, name: str):
         self.name = name
 
+    def setVarType(self, varType: VarTypes):
+        self.varType = varType
+
     def toNodes(self) -> set[Node]:
         return {arrow.toNode for arrow in self.outArrows}
 

@@ -13,8 +13,8 @@ class CPDAG(nx.DiGraph):
     def __init__(self, incoming_graph_data=None, **attr):
         super().__init__(incoming_graph_data, **attr)
 
-    def has_variable(self, name: str) -> bool:
-        return any(node.name == name for node in self.nodes)
+    def has_variable(self, name: str, exclude: Node | None = None) -> bool:
+        return any(node.name == name and node != exclude for node in self.nodes)
 
     def is_undirected(self, u: Node, v: Node) -> bool:
         return self.has_edge(u, v) and self.has_edge(v, u)
@@ -34,7 +34,7 @@ class CPDAG(nx.DiGraph):
     def toCPDAG(self) -> "CPDAG":
         graph = CPDAG()
         nodes = {
-            node: graph.add_variable(Node(node.name, node.varType))
+            node: graph.add_variable(Node(node.name, node.varType, node.id))
             for node in self.nodes
         }
         for u, v in self.edges:
@@ -93,8 +93,19 @@ class CPDAG(nx.DiGraph):
         if not node.name.strip():
             raise ValueError("Variable name can't be empty")
         if node in self:
+            raise ValueError("This variable is already in the graph")
+        if self.has_variable(node.name):
             raise ValueError(f"Variable '{node.name}' already exists")
         self.add_node(node)
+        return node
+
+    def rename_variable(self, node: Node, name: str) -> Node:
+        name = name.strip()
+        if not name:
+            raise ValueError("Variable name can't be empty")
+        if self.has_variable(name, exclude=node):
+            raise ValueError(f"Variable '{name}' already exists")
+        node.rename(name)
         return node
 
     def add_arrow(

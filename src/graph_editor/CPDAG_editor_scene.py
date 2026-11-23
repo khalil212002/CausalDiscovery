@@ -31,6 +31,14 @@ class CPDAGEditorScene(GraphEditorScene):
         self.cpdag.remove_variable(node)
         self.graphChanged.emit()
 
+    def renameNode(self, node, name):
+        try:
+            self.cpdag.rename_variable(node, name)
+        except ValueError as e:
+            QMessageBox.warning(None, "Rename Variable", str(e))
+            return
+        self.graphChanged.emit()
+
     def addArrow(self, fromNode, toNode):
         arr = super().addArrow(fromNode, toNode)
         self.cpdag.add_arrow(fromNode, toNode, arr)

@@ -43,6 +43,9 @@ class GraphEditorScene(QGraphicsScene):
         self.prevSelection = self.getSelectedNodes() - set([node])
         self.removeItem(node)
 
+    def renameNode(self, node, name):
+        node.rename(name)
+
     def addArrow(self, fromNode, toNode):
         arr = GraphArrow()
         self.addItem(arr)

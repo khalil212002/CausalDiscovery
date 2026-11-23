@@ -33,8 +33,8 @@ class GraphNode(Node, QGraphicsItemGroup):
     SELECTION_HALO = QColor(ui_colors.SELECTION_HALO)
     SELECTION_OUTSET = 4  # how far the ring sits outside the node body
 
-    def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0)):
-        Node.__init__(self, name, type)
+    def __init__(self, name: str, type: VarTypes, pos=QPoint(0, 0), id=None):
+        Node.__init__(self, name, type, id)
         QGraphicsItemGroup.__init__(self)
 
         self.setFlag(QGraphicsItemGroup.ItemIsMovable, True)
@@ -59,22 +59,14 @@ class GraphNode(Node, QGraphicsItemGroup):
         self._name_text.setFont(name_font)
         self._name_text.setBrush(self.TEXT)
 
-        # --- Stretch the width to always fit the full name and the badge ---
-        badge_width = self._badge_text.boundingRect().width() + 2 * self.BADGE_PAD
-        self.WIDTH = max(
-            self.MIN_WIDTH,
-            badge_width + 2 * self.BADGE_INSET,
-            self._name_text.boundingRect().width() + 2 * self.NAME_PAD,
+        self._badge_width = (
+            self._badge_text.boundingRect().width() + 2 * self.BADGE_PAD
         )
 
-        # --- Body: rounded rectangle ---
-        body_path = QPainterPath()
-        body_path.addRoundedRect(
-            QRectF(0, 0, self.WIDTH, self.HEIGHT),
-            self.CORNER_RADIUS,
-            self.CORNER_RADIUS,
-        )
-        self._rect = QGraphicsPathItem(body_path)
+        self.WIDTH = self.MIN_WIDTH  # stretched to fit the name in _layout()
+
+        # --- Body: rounded rectangle, its path is set in _layout() ---
+        self._rect = QGraphicsPathItem()
         # Border uses the same color as the badge (the node's type color)
         self._rect.setPen(QPen(QColor(var_type_color(type)), self.BORDER_WIDTH))
         self._rect.setBrush(self.BODY_FILL)
@@ -83,7 +75,7 @@ class GraphNode(Node, QGraphicsItemGroup):
         badge_rect = QRectF(
             self.BADGE_INSET,
             self.BADGE_INSET,
-            badge_width,
+            self._badge_width,
             self.BADGE_HEIGHT,
         )
         badge_path = QPainterPath()
@@ -102,29 +94,60 @@ class GraphNode(Node, QGraphicsItemGroup):
             + (self.BADGE_HEIGHT - self._badge_text.boundingRect().height()) / 2,
         )
 
-        # --- Node name, centered in the middle of the body ---
-        name_text_rect = self._name_text.boundingRect()
-        self._name_text.setPos(
-            (self.WIDTH - name_text_rect.width()) / 2,
-            (self.HEIGHT - name_text_rect.height()) / 2,
-        )
-
         # Add sub-items securely to this group instance (bottom to top)
         self.addToGroup(self._rect)
         self.addToGroup(self._badge)
         self.addToGroup(self._badge_text)
         self.addToGroup(self._name_text)
+        self._layout()
 
         # Set the position after parenting, so children keep their local
         # coordinates relative to the group instead of the scene origin.
         # `pos` is the desired center of the node, so offset by half its size.
         self.setPos(QPointF(pos) - QPointF(self.WIDTH / 2, self.HEIGHT / 2))
 
+    def _layout(self):
+        # Stretch the width to always fit the full name and the badge, then
+        # center the name in the body.
+        self.prepareGeometryChange()
+        self.WIDTH = max(
+            self.MIN_WIDTH,
+            self._badge_width + 2 * self.BADGE_INSET,
+            self._name_text.boundingRect().width() + 2 * self.NAME_PAD,
+        )
+
+        body_path = QPainterPath()
+        body_path.addRoundedRect(
+            QRectF(0, 0, self.WIDTH, self.HEIGHT),
+            self.CORNER_RADIUS,
+            self.CORNER_RADIUS,
+        )
+        self._rect.setPath(body_path)
+
+        name_text_rect = self._name_text.boundingRect()
+        self._name_text.setPos(
+            (self.WIDTH - name_text_rect.width()) / 2,
+            (self.HEIGHT - name_text_rect.height()) / 2,
+        )
+
+    def rename(self, name: str):
+        # Keep the node centered where it was while its width changes
+        center = self.pos() + QPointF(self.WIDTH / 2, self.HEIGHT / 2)
+        super().rename(name)
+        self._name_text.setText(name)
+        self._layout()
+        self.setPos(center - QPointF(self.WIDTH / 2, self.HEIGHT / 2))
+        for arrow in self.arrows():
+            arrow.update_position()
+
     def boundingRect(self):
-        # Reserve room around the node so the selection ring, which is drawn
-        # slightly outside the body, is always included in scene updates.
+        # Computed from the body instead of the group's cached children rect,
+        # which doesn't follow renames. The margin keeps the selection ring,
+        # drawn slightly outside the body, inside scene updates.
         margin = self.SELECTION_OUTSET + 1
-        return super().boundingRect().adjusted(-margin, -margin, margin, margin)
+        return QRectF(0, 0, self.WIDTH, self.HEIGHT).adjusted(
+            -margin, -margin, margin, margin
+        )
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:

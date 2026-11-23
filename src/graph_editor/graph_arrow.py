@@ -48,7 +48,8 @@ class GraphArrow(Arrow, QGraphicsLineItem):
         padding = self.ARROW_HEAD_SIZE + self.pen().width()
         return rect.adjusted(-padding, -padding, padding, padding)
 
-    def find_rect_intersection(self, center_line, rect):
+    @staticmethod
+    def find_rect_intersection(center_line, rect):
         # Break the combined group bounding box into 4 edge lines
         top_wall = QLineF(rect.topLeft(), rect.topRight())
         bottom_wall = QLineF(rect.bottomLeft(), rect.bottomRight())
@@ -107,23 +108,62 @@ class GraphArrow(Arrow, QGraphicsLineItem):
             painter.drawLine(line)
             return
 
-        # Calculate angle of the line
-        # Calculate the base trajectory angle of the line
-        angle = math.atan2(line.dy(), line.dx())
-
-        # Corrected arrowhead wing offsets for screen-space geometry (Y down)
-        # Spread ARROW_HEAD_SPREAD on either side of the backward vector (angle + pi)
-        arrow_p1 = line.p2() + QPointF(
-            math.cos(angle + math.pi + self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
-            math.sin(angle + math.pi + self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
-        )
-        arrow_p2 = line.p2() + QPointF(
-            math.cos(angle + math.pi - self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
-            math.sin(angle + math.pi - self.ARROW_HEAD_SPREAD) * self.ARROW_HEAD_SIZE,
-        )
-
-        arrow_head = QPolygonF([line.p2(), arrow_p1, arrow_p2])
-
-        # Draw the line and the arrowhead polygon
         painter.drawLine(line)
-        painter.drawPolygon(arrow_head)
+        painter.drawPolygon(self.arrowHead(line))
+
+    @classmethod
+    def arrowHead(cls, line):
+        # Wings spread ARROW_HEAD_SPREAD on either side of the backward
+        # direction (angle + pi), in screen space (Y down)
+        angle = math.atan2(line.dy(), line.dx())
+        wings = [
+            line.p2()
+            + QPointF(
+                math.cos(angle + math.pi + side * cls.ARROW_HEAD_SPREAD)
+                * cls.ARROW_HEAD_SIZE,
+                math.sin(angle + math.pi + side * cls.ARROW_HEAD_SPREAD)
+                * cls.ARROW_HEAD_SIZE,
+            )
+            for side in (1, -1)
+        ]
+        return QPolygonF([line.p2(), *wings])
+
+
+class PreviewArrow(QGraphicsLineItem):
+    """Faded arrow following the cursor while an arrow is being dragged."""
+
+    OPACITY = 0.45
+
+    def __init__(self, fromNode):
+        super().__init__()
+        self.fromNode = fromNode
+        self.setOpacity(self.OPACITY)
+        self.setPen(
+            QPen(
+                GraphArrow.ARROW_COLOR,
+                GraphArrow.ARROW_WIDTH,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            )
+        )
+
+    def pointTo(self, pos):
+        # Start on the source node's border, like a real arrow
+        rect = self.fromNode.sceneBoundingRect()
+        center_line = QLineF(rect.center(), pos)
+        start = GraphArrow.find_rect_intersection(center_line, rect)
+        self.setLine(QLineF(start or rect.center(), pos))
+
+    def boundingRect(self):
+        padding = GraphArrow.ARROW_HEAD_SIZE + self.pen().width()
+        return super().boundingRect().adjusted(-padding, -padding, padding, padding)
+
+    def paint(self, painter, option, /, widget=...):
+        line = self.line()
+        if line.isNull():
+            return
+        painter.setPen(self.pen())
+        painter.setBrush(QBrush(GraphArrow.ARROW_COLOR))
+        painter.drawLine(line)
+        painter.drawPolygon(GraphArrow.arrowHead(line))

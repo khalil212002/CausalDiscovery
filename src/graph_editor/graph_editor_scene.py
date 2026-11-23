@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, Signal
 from models.editor_modes import DEFAULT_EDITOR_MODE, EditorMode
 from models.var_types import VarTypes
 from graph_editor.graph_node import GraphNode
-from graph_editor.graph_arrow import GraphArrow
+from graph_editor.graph_arrow import GraphArrow, PreviewArrow
 
 
 class GraphEditorScene(QGraphicsScene):
@@ -33,6 +33,7 @@ class GraphEditorScene(QGraphicsScene):
 
         self.mode = DEFAULT_EDITOR_MODE
         self.arrowStartNode = None  # node pressed in ARROWS mode
+        self.previewArrow = None  # faded arrow shown while dragging an arrow
 
     def setMode(self, mode):
         if mode is self.mode:
@@ -140,6 +141,8 @@ class GraphEditorScene(QGraphicsScene):
 
     def mouseMoveEvent(self, event):
         if self.mode is EditorMode.ARROWS:
+            if self.arrowStartNode is not None:
+                self.updatePreviewArrow(event.scenePos())
             event.accept()
             return
         super().mouseMoveEvent(event)
@@ -170,8 +173,20 @@ class GraphEditorScene(QGraphicsScene):
             else:
                 start.setSelected(True)
 
+    def updatePreviewArrow(self, pos):
+        if self.previewArrow is None:
+            # Only show the arrow once the cursor leaves the start node
+            if self.nodeAt(pos) is self.arrowStartNode:
+                return
+            self.previewArrow = PreviewArrow(self.arrowStartNode)
+            self.addItem(self.previewArrow)
+        self.previewArrow.pointTo(pos)
+
     def cancelArrowDrag(self):
         self.arrowStartNode = None
+        if self.previewArrow is not None:
+            self.removeItem(self.previewArrow)
+            self.previewArrow = None
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:

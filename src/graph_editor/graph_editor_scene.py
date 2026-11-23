@@ -9,21 +9,56 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QHBoxLayout,
 )
-from PySide6.QtGui import QTransform
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
+from models.editor_modes import DEFAULT_EDITOR_MODE, EditorMode
 from models.var_types import VarTypes
 from graph_editor.graph_node import GraphNode
 from graph_editor.graph_arrow import GraphArrow
 
 
 class GraphEditorScene(QGraphicsScene):
+    """Graph canvas whose mouse behaviour depends on the current EditorMode.
+
+    - NODES:  click empty space to add a node, drag nodes to move them.
+    - ARROWS: click a source then a target (or drag from one to the other)
+              to add an arrow; doing it again removes the arrow. Ctrl+click
+              picks several sources at once.
+    - SELECT: click nodes or drag a box to select several of them.
+    """
+
+    modeChanged = Signal(object)
 
     def __init__(self):
         super().__init__()
 
-        self.prevSelection = set()
-        self.prevPressPos = None
-        self.pressedSelectedItem = None
+        self.mode = DEFAULT_EDITOR_MODE
+        self.arrowStartNode = None  # node pressed in ARROWS mode
+
+    def setMode(self, mode):
+        if mode is self.mode:
+            return
+        self.cancelArrowDrag()
+        self.clearSelection()
+        self.mode = mode
+        for node in self.nodes():
+            self.applyMode(node)
+        self.modeChanged.emit(mode)
+
+    def applyMode(self, node):
+        node.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
+            self.mode is EditorMode.NODES,
+        )
+
+    def nodes(self):
+        return [item for item in self.items() if isinstance(item, GraphNode)]
+
+    def nodeAt(self, pos):
+        for item in self.items(pos):
+            item = item.group() or item.topLevelItem()
+            if isinstance(item, GraphNode):
+                return item
+        return None
 
     def addNodeDialog(self, pos):
         dialog = AddNodeDialog()
@@ -32,15 +67,16 @@ class GraphEditorScene(QGraphicsScene):
 
     def addNode(self, pos, name, type):
         newNode = GraphNode(name, type, pos)
+        self.applyMode(newNode)
         self.addItem(newNode)
-        self.prevSelection = set()
         self.clearSelection()
         return newNode
 
     def deleteNode(self, node):
+        if node is self.arrowStartNode:
+            self.cancelArrowDrag()
         for arrow in node.arrows():
             self.removeItem(arrow)
-        self.prevSelection = self.getSelectedNodes() - set([node])
         self.removeItem(node)
 
     def renameNode(self, node, name):
@@ -56,74 +92,97 @@ class GraphEditorScene(QGraphicsScene):
         self.removeItem(arr)
         return arr
 
-    def mousePressEvent(self, event):
-        self.prevPressPos = event.scenePos()
-        transform = (
-            self.views()[0].transform() if self.views() else QTransform()
-        )
+    def toggleArrows(self, sources, target):
+        for source in sources:
+            if source is target:
+                continue
+            if target in source.toNodes():
+                self.deleteArrow(source, target)
+            else:
+                self.addArrow(source, target)
+        self.clearSelection()
 
-        item = self.itemAt(event.scenePos(), transform)
-        if item:
-            item = item.group() or item.topLevelItem()
-            is_selectable = (
-                QGraphicsItem.GraphicsItemFlag.ItemIsSelectable in item.flags()
-            )
-            if is_selectable and item.isSelected():
-                self.pressedSelectedItem = item
-        else:
-            if event.button() == Qt.MouseButton.LeftButton:
+    def getSelectedNodes(self):
+        return {item for item in self.selectedItems() if isinstance(item, GraphNode)}
+
+    # --- Mouse handling, routed by mode ---
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+
+        node = self.nodeAt(event.scenePos())
+        if self.mode is EditorMode.NODES:
+            if node is None:
+                self.clearSelection()
                 self.addNodeDialog(event.scenePos())
                 event.accept()
                 return
-        super().mousePressEvent(event)
+            super().mousePressEvent(event)
+        elif self.mode is EditorMode.ARROWS:
+            self.arrowStartNode = node
+            if node is None:
+                self.clearSelection()
+            event.accept()
+        elif self.mode is EditorMode.SELECT:
+            if node is None:
+                # Left unaccepted so the view starts a rubber band selection
+                super().mousePressEvent(event)
+                return
+            node.setSelected(not node.isSelected())
+            event.accept()
+
+    def mouseDoubleClickEvent(self, event):
+        # Treat the second click of a double click as a normal press, so fast
+        # clicking (e.g. source then target) never loses a click.
+        self.mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.mode is EditorMode.ARROWS:
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        if event.scenePos() != self.prevPressPos:
-            self.clearSelection()
-            self.prevSelection = set()
-        elif self.pressedSelectedItem is not None:
-            self.pressedSelectedItem.setSelected(False)
-            self.prevSelection = self.getSelectedNodes()
+        if self.mode is not EditorMode.ARROWS:
+            super().mouseReleaseEvent(event)
+            return
+
+        event.accept()
+        start = self.arrowStartNode
+        self.cancelArrowDrag()
+        end = self.nodeAt(event.scenePos())
+        if start is None or end is None:
+            return
+
+        if end is not start:
+            # Dragged from one node to another
+            self.toggleArrows({start}, end)
+        elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            start.setSelected(not start.isSelected())
         else:
-            self.itemSelected()
-        self.pressedSelectedItem = None
+            sources = self.getSelectedNodes()
+            if start in sources:
+                start.setSelected(False)
+            elif sources:
+                self.toggleArrows(sources, start)
+            else:
+                start.setSelected(True)
+
+    def cancelArrowDrag(self):
+        self.arrowStartNode = None
 
     def keyPressEvent(self, event):
-        # Delete Item
         if event.key() == Qt.Key.Key_Delete:
             for item in self.getSelectedNodes():
                 self.deleteNode(item)
             event.accept()
             return
         elif event.key() == Qt.Key.Key_Escape:
+            self.cancelArrowDrag()
             self.clearSelection()
-            self.prevSelection = self.getSelectedNodes()
         return super().keyPressEvent(event)
-
-    def getSelectedNodes(self):
-        return set(
-            [item for item in self.selectedItems() if isinstance(item, GraphNode)]
-        )
-
-    def itemSelected(self):
-        # add arrow
-        newSelection = self.getSelectedNodes()
-        if (
-            newSelection
-            and self.prevSelection
-            and not (newSelection & self.prevSelection)
-        ):
-            for fromItem in self.prevSelection:
-                for toItem in newSelection:
-                    if toItem not in fromItem.toNodes():
-                        self.addArrow(fromItem, toItem)
-                    else:
-                        self.deleteArrow(fromItem, toItem)
-            self.clearSelection()
-            self.prevSelection = set()
-            return
-        self.prevSelection = newSelection
 
 
 class AddNodeDialog(QDialog):

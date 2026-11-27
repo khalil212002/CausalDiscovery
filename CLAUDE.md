@@ -80,6 +80,22 @@ like DAGitty and fully automatic causal discovery algorithms.
 - Don't overuse comments. Use them to explain the general purpose of the code,
   or to describe a piece of code that's hard to understand.
 
+## Knowledge graph (graphify)
+
+`graphify-out/` holds a graphify knowledge graph of the project (gitignored,
+local only). Read `graphify-out/GRAPH_REPORT.md` to get oriented, and use
+`graphify query "<question>"` for questions about how the code fits together.
+Keep it matching the code, so a new chat always starts from the current state:
+
+- Git hooks rebuild the code graph after every commit, checkout, merge and
+  rebase (code files only, no LLM). If `graphify hook status` shows them
+  missing (e.g. a fresh clone or another machine), run `graphify hook install`.
+- Backup: the hooks only see committed code. After changing code, and always
+  before ending a task, run `graphify update .` from the repo root so the
+  graph also covers uncommitted changes.
+- The hooks and `graphify update` skip docs. After changing docs (`CLAUDE.md`,
+  `README.md`, PDFs, slides, images), run `/graphify --update`.
+
 ## Git & GitHub
 
 - Before every commit, check that `requirements.txt` matches the venv
